@@ -1,0 +1,567 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- التعدادات (Enums) ---
+enum Gender {
+  MALE
+  FEMALE
+}
+enum SchoolTerm {
+  FIRST_TERM
+  SECOND_TERM
+  THIRD_TERM
+}
+enum AccountType {
+  STAFF
+  TEACHER
+  PARENT
+}
+enum ScopeType {
+  INSTITUTION
+  CENTER
+  BRANCH
+}
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  SUSPENDED
+  TRANSFERRED_OUT
+}
+enum EnrollmentStatus {
+  ACTIVE
+  PROMOTED
+  FAILED
+  TRANSFERRED
+  WITHDRAWN
+}
+enum FinancialStatus {
+  FULL
+  HALF
+  EXEMPT
+}
+enum AdjustmentRequestType {
+  CANCEL_PAYMENT
+  CHANGE_FIN_STATUS
+}
+enum AdjustmentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+enum Channel {
+  SMS
+  WHATSAPP
+  SYSTEM
+}
+enum NotificationStatus {
+  SENT
+  FAILED
+  DELIVERED
+}
+enum TemplateType {
+  ID_CARD
+  TRANSCRIPT
+  SUCCESS_CERTIFICATE
+  TRANSFER_CERTIFICATE
+}
+
+// --- النماذج (Models) ---
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  roleName    String           @unique @db.VarChar(100)
+  description String?          @db.Text
+  assignments UserAssignment[]
+}
+
+model Center {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  nameAr    String   @db.VarChar(255)
+  nameFr    String   @db.VarChar(255)
+  address   String?  @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  branches  Branch[]
+}
+
+model Branch {
+  id                  BigInt               @id @default(autoincrement()) @db.BigInt
+  centerId            BigInt               @db.BigInt
+  nameAr              String               @db.VarChar(255)
+  nameFr              String               @db.VarChar(255)
+  address             String?              @db.Text
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @db.Timestamptz
+  center              Center               @relation(fields: [centerId], references: [id])
+  classrooms          Classroom[]
+  curriculumTemplates CurriculumTemplate[]
+  subjectUnits        SubjectUnit[]
+  feeTypes            FeeType[]
+  feeStructureItems   FeeStructureItem[]
+  documentTemplates   DocumentTemplate[]
+  examTypes           ExamType[]
+  expenses            Expense[]
+  bankDeposits        BankDeposit[]
+}
+
+model User {
+  id                       BigInt                       @id @default(autoincrement()) @db.BigInt
+  username                 String                       @unique @db.VarChar(100)
+  passwordHash             String                       @db.VarChar(255)
+  fullName                 String                       @db.VarChar(255)
+  email                    String                       @unique @db.VarChar(255)
+  phoneNumber              String                       @db.VarChar(50)
+  accountType              AccountType
+  isActive                 Boolean                      @default(true)
+  createdAt                DateTime                     @default(now()) @db.Timestamptz
+  assignments              UserAssignment[]
+  parent                   Parent?
+  staffProfile             StaffProfile?
+  createdExams             Exam[]                       @relation("ExamCreator")
+  enteredMarks             Mark[]                       @relation("MarkEnterer")
+  enteredPayments          Payment[]                    @relation("PaymentEnterer")
+  initiatedRequests        FinancialAdjustmentRequest[] @relation("RequestInitiator")
+  resolvedRequests         FinancialAdjustmentRequest[] @relation("RequestResolver")
+  auditLogs                FinancialAuditLog[]          @relation("AuditUser")
+  teachingAssignments      TeacherAssignment[]          @relation("TeacherAssignments")
+  sentInternalMessages     InternalMessage[]            @relation("SentMessages")
+  receivedInternalMessages MessageRecipient[]           @relation("ReceivedMessages")
+  sentNotifications        NotificationLog[]            @relation("SentNotifications")
+  generatedDocuments       GeneratedDocument[]          @relation("DocumentGenerator")
+  enteredExpenses          Expense[]                    @relation("ExpenseEnterer")
+  enteredBankDeposits      BankDeposit[]                @relation("BankDepositEnterer")
+}
+
+model UserAssignment {
+  id        BigInt    @id @default(autoincrement()) @db.BigInt
+  userId    BigInt    @db.BigInt
+  roleId    Int
+  scopeType ScopeType
+  scopeId   BigInt?   @db.BigInt
+  user      User      @relation(fields: [userId], references: [id])
+  role      Role      @relation(fields: [roleId], references: [id])
+  @@index([userId, roleId])
+}
+
+model Student {
+  id            BigInt              @id @default(autoincrement()) @db.BigInt
+  uniqueId      String              @unique @db.VarChar(100)
+  fullName      String              @db.VarChar(255)
+  branchId      BigInt              @db.BigInt
+  birthDate     DateTime?           @db.Date
+  birthPlace    String?             @db.VarChar(255)
+  gender        Gender              @default(MALE)
+  status        StudentStatus       @default(ACTIVE)
+  enrollments   Enrollment[]
+  parentLinks   ParentStudentLink[]
+  marks         Mark[]
+  notifications NotificationLog[]
+}
+
+model Parent {
+  id           BigInt              @id @default(autoincrement()) @db.BigInt
+  userId       BigInt              @unique @db.BigInt
+  parentName   String              @db.VarChar(255)
+  parentPhone  String              @unique @db.VarChar(50)
+  user         User                @relation(fields: [userId], references: [id])
+  studentLinks ParentStudentLink[]
+}
+
+model ParentStudentLink {
+  parentId     BigInt  @db.BigInt
+  studentId    BigInt  @db.BigInt
+  relationship String? @db.VarChar(100)
+  parent       Parent  @relation(fields: [parentId], references: [id])
+  student      Student @relation(fields: [studentId], references: [id])
+  @@id([parentId, studentId])
+}
+
+model AcademicYear {
+  id                  Int                  @id @default(autoincrement())
+  name                String               @unique @db.VarChar(100)
+  startDate           DateTime             @db.Date
+  endDate             DateTime             @db.Date
+  isActive            Boolean              @default(false)
+  classrooms          Classroom[]
+  enrollments         Enrollment[]
+  exams               Exam[]
+  teacherAssignments  TeacherAssignment[]
+  feeStructureItems   FeeStructureItem[]
+  curriculumTemplates CurriculumTemplate[]
+}
+
+model EducationSystem {
+  id                  Int                  @id @default(autoincrement())
+  nameAr              String               @db.VarChar(255)
+  nameFr              String               @db.VarChar(255)
+  classrooms          Classroom[]
+  curriculumTemplates CurriculumTemplate[]
+  feeStructureItems   FeeStructureItem[]
+}
+
+model Stage {
+  id     Int     @id @default(autoincrement())
+  nameAr String  @db.VarChar(100)
+  nameFr String  @db.VarChar(100)
+  levels Level[]
+}
+
+model Level {
+  id                  Int                  @id @default(autoincrement())
+  stageId             Int
+  nameAr              String               @db.VarChar(100)
+  nameFr              String               @db.VarChar(100)
+  orderIndex          Int
+  stage               Stage                @relation(fields: [stageId], references: [id])
+  classrooms          Classroom[]
+  curriculumTemplates CurriculumTemplate[]
+  feeStructureItems   FeeStructureItem[]
+}
+
+model Classroom {
+  id                   BigInt              @id @default(autoincrement()) @db.BigInt
+  branchId             BigInt              @db.BigInt
+  academicYearId       Int
+  levelId              Int
+  educationSystemId    Int
+  name                 String              @db.VarChar(100)
+  capacity             Int?
+  curriculumTemplateId BigInt?
+  branch               Branch              @relation(fields: [branchId], references: [id])
+  academicYear         AcademicYear        @relation(fields: [academicYearId], references: [id])
+  level                Level               @relation(fields: [levelId], references: [id])
+  educationSystem      EducationSystem     @relation(fields: [educationSystemId], references: [id])
+  curriculumTemplate   CurriculumTemplate? @relation(fields: [curriculumTemplateId], references: [id])
+  enrollments          Enrollment[]
+  exams                Exam[]
+  teacherAssignments   TeacherAssignment[]
+}
+
+model Enrollment {
+  id                 BigInt                       @id @default(autoincrement()) @db.BigInt
+  studentId          BigInt                       @db.BigInt
+  classroomId        BigInt                       @db.BigInt
+  academicYearId     Int
+  seatNumber         String                       @db.VarChar(50)
+  enrollDate         DateTime                     @default(now()) @db.Date
+  status             EnrollmentStatus             @default(ACTIVE)
+  financialStatus    FinancialStatus
+  student            Student                      @relation(fields: [studentId], references: [id])
+  classroom          Classroom                    @relation(fields: [classroomId], references: [id])
+  academicYear       AcademicYear                 @relation(fields: [academicYearId], references: [id])
+  payments           Payment[]
+  adjustmentRequests FinancialAdjustmentRequest[]
+  generatedDocuments GeneratedDocument[]
+  auditLogs          FinancialAuditLog[]
+  @@unique([studentId, academicYearId])
+}
+
+model SubjectUnit {
+  id       Int       @id @default(autoincrement())
+  nameAr   String    @db.VarChar(255)
+  nameFr   String    @db.VarChar(255)
+  branchId BigInt?   @db.BigInt
+  branch   Branch?   @relation(fields: [branchId], references: [id])
+  subjects Subject[]
+}
+
+model Subject {
+  id                 BigInt              @id @default(autoincrement()) @db.BigInt
+  subjectUnitId      Int?
+  nameAr             String              @db.VarChar(255)
+  nameFr             String              @db.VarChar(255)
+  subjectUnit        SubjectUnit?        @relation(fields: [subjectUnitId], references: [id])
+  curriculumSubjects CurriculumSubject[]
+  exams              Exam[]
+  teacherAssignments TeacherAssignment[]
+}
+
+model CurriculumTemplate {
+  id                BigInt              @id @default(autoincrement()) @db.BigInt
+  branchId          BigInt              @db.BigInt
+  levelId           Int
+  educationSystemId Int
+  academicYearId    Int
+  name              String              @db.VarChar(255)
+  branch            Branch              @relation(fields: [branchId], references: [id])
+  level             Level               @relation(fields: [levelId], references: [id])
+  educationSystem   EducationSystem     @relation(fields: [educationSystemId], references: [id])
+  academicYear      AcademicYear        @relation(fields: [academicYearId], references: [id])
+  subjects          CurriculumSubject[]
+  classrooms        Classroom[]
+}
+
+model CurriculumSubject {
+  id          BigInt             @id @default(autoincrement()) @db.BigInt
+  templateId  BigInt             @db.BigInt
+  subjectId   BigInt             @db.BigInt
+  coefficient Decimal            @default(1.0) @db.Decimal(5, 2)
+  maxScore    Int                @default(20)
+  template    CurriculumTemplate @relation(fields: [templateId], references: [id])
+  subject     Subject            @relation(fields: [subjectId], references: [id])
+  @@unique([templateId, subjectId])
+}
+
+model GradeScale {
+  id        Int     @id @default(autoincrement())
+  minScore  Decimal @db.Decimal(5, 2)
+  maxScore  Decimal @db.Decimal(5, 2)
+  ratingAr  String  @db.VarChar(100)
+  ratingFr  String  @db.VarChar(100)
+  scaleName String  @db.VarChar(100)
+}
+
+model ExamType {
+  id       Int     @id @default(autoincrement())
+  nameAr   String  @db.VarChar(100)
+  nameFr   String  @db.VarChar(100)
+  branchId BigInt? @db.BigInt
+  branch   Branch? @relation(fields: [branchId], references: [id])
+  exams    Exam[]
+}
+
+model Exam {
+  id             BigInt       @id @default(autoincrement()) @db.BigInt
+  classroomId    BigInt       @db.BigInt
+  subjectId      BigInt       @db.BigInt
+  examTypeId     Int
+  academicYearId Int
+  name           String       @db.VarChar(255)
+  examDate       DateTime     @db.Date
+  term           SchoolTerm   @default(FIRST_TERM)
+  maxScore       Decimal      @default(20) @db.Decimal(5, 2)
+  creatorUserId  BigInt       @db.BigInt
+  classroom      Classroom    @relation(fields: [classroomId], references: [id])
+  subject        Subject      @relation(fields: [subjectId], references: [id])
+  examType       ExamType     @relation(fields: [examTypeId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  creatorUser    User         @relation("ExamCreator", fields: [creatorUserId], references: [id])
+  marks          Mark[]
+  @@index([classroomId, subjectId])
+}
+
+model Mark {
+  id              BigInt   @id @default(autoincrement()) @db.BigInt
+  examId          BigInt   @db.BigInt
+  studentId       BigInt   @db.BigInt
+  score           Decimal  @db.Decimal(5, 2)
+  enteredByUserId BigInt   @db.BigInt
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  comments        String?  @db.Text
+  exam            Exam     @relation(fields: [examId], references: [id])
+  student         Student  @relation(fields: [studentId], references: [id])
+  enteredByUser   User     @relation("MarkEnterer", fields: [enteredByUserId], references: [id])
+  @@unique([examId, studentId])
+}
+
+model FeeType {
+  id                Int                @id @default(autoincrement())
+  branchId          BigInt?            @db.BigInt
+  nameAr            String             @db.VarChar(255)
+  nameFr            String             @db.VarChar(255)
+  branch            Branch?            @relation(fields: [branchId], references: [id])
+  feeStructureItems FeeStructureItem[]
+  payments          Payment[]
+}
+
+model FeeStructureItem {
+  id                BigInt          @id @default(autoincrement()) @db.BigInt
+  academicYearId    Int
+  branchId          BigInt
+  levelId           Int
+  educationSystemId Int
+  feeTypeId         Int
+  amount            Decimal         @db.Decimal(12, 2)
+  academicYear      AcademicYear    @relation(fields: [academicYearId], references: [id])
+  branch            Branch          @relation(fields: [branchId], references: [id])
+  level             Level           @relation(fields: [levelId], references: [id])
+  educationSystem   EducationSystem @relation(fields: [educationSystemId], references: [id])
+  feeType           FeeType         @relation(fields: [feeTypeId], references: [id])
+}
+
+model Payment {
+  id                BigInt                     @id @default(autoincrement()) @db.BigInt
+  enrollmentId      BigInt                     @db.BigInt
+  feeTypeId         Int
+  amountPaid        Decimal                    @db.Decimal(12, 2)
+  paymentDate       DateTime                   @db.Date
+  receiptNumber     String                     @unique @db.VarChar(100)
+  enteredByUserId   BigInt                     @db.BigInt
+  isActive          Boolean                    @default(true)
+  createdAt         DateTime                   @default(now()) @db.Timestamptz
+  enrollment        Enrollment                 @relation(fields: [enrollmentId], references: [id])
+  feeType           FeeType                    @relation(fields: [feeTypeId], references: [id])
+  enteredByUser     User                       @relation("PaymentEnterer", fields: [enteredByUserId], references: [id])
+  adjustmentRequest FinancialAdjustmentRequest[]
+}
+
+model Expense {
+  id              BigInt   @id @default(autoincrement()) @db.BigInt
+  branchId        BigInt   @db.BigInt
+  amount          Decimal  @db.Decimal(12, 2)
+  reason          String   @db.Text
+  authorizedBy    String   @db.VarChar(255)
+  enteredByUserId BigInt   @db.BigInt
+  expenseDate     DateTime @default(now()) @db.Timestamptz
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  enteredByUser   User     @relation("ExpenseEnterer", fields: [enteredByUserId], references: [id])
+}
+
+model BankDeposit {
+  id               BigInt   @id @default(autoincrement()) @db.BigInt
+  branchId         BigInt   @db.BigInt
+  amount           Decimal  @db.Decimal(12, 2)
+  bankName         String   @db.VarChar(255)
+  depositSlipImage String?  @db.Text
+  depositDate      DateTime @db.Date
+  enteredByUserId  BigInt   @db.BigInt
+  createdAt        DateTime @default(now()) @db.Timestamptz
+  branch           Branch   @relation(fields: [branchId], references: [id])
+  enteredByUser    User     @relation("BankDepositEnterer", fields: [enteredByUserId], references: [id])
+}
+
+model FinancialAdjustmentRequest {
+  id                 BigInt                  @id @default(autoincrement()) @db.BigInt
+  requestType        AdjustmentRequestType
+  enrollmentId       BigInt                  @db.BigInt
+  paymentId          BigInt?                 @db.BigInt
+  requestedByUserId  BigInt                  @db.BigInt
+  justification      String                  @db.Text
+  status             AdjustmentRequestStatus @default(PENDING)
+  resolvedByUserId   BigInt?                 @db.BigInt
+  resolutionComments String?                 @db.Text
+  requestedAt        DateTime                @default(now()) @db.Timestamptz
+  resolvedAt         DateTime?               @db.Timestamptz
+  enrollment         Enrollment              @relation(fields: [enrollmentId], references: [id])
+  payment            Payment?                @relation(fields: [paymentId], references: [id])
+  requestedByUser    User                    @relation("RequestInitiator", fields: [requestedByUserId], references: [id])
+  resolvedByUser     User?                   @relation("RequestResolver", fields: [resolvedByUserId], references: [id])
+}
+
+model FinancialAuditLog {
+  id           BigInt      @id @default(autoincrement()) @db.BigInt
+  action       String      @db.VarChar(255)
+  userId       BigInt      @db.BigInt
+  enrollmentId BigInt?     @db.BigInt
+  paymentId    BigInt?     @db.BigInt
+  timestamp    DateTime    @default(now()) @db.Timestamptz
+  detailsJson  Json?
+  user         User        @relation("AuditUser", fields: [userId], references: [id])
+  enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id])
+}
+
+model StaffProfile {
+  id               BigInt    @id @default(autoincrement()) @db.BigInt
+  userId           BigInt    @unique @db.BigInt
+  staffIdNumber    String    @unique @db.VarChar(100)
+  jobTitle         String    @db.VarChar(255)
+  personalDataJson Json?
+  hireDate         DateTime? @db.Date
+  user             User      @relation(fields: [userId], references: [id])
+  contract         Contract[]
+  salary           Salary[]
+}
+
+model Contract {
+  id             BigInt       @id @default(autoincrement()) @db.BigInt
+  staffProfileId BigInt       @db.BigInt
+  contractType   String       @db.VarChar(100)
+  startDate      DateTime     @db.Date
+  endDate        DateTime?    @db.Date
+  documentUrl    String?      @db.VarChar(512)
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id])
+}
+
+model Salary {
+  id             BigInt       @id @default(autoincrement()) @db.BigInt
+  staffProfileId BigInt       @unique @db.BigInt
+  baseSalary     Decimal      @db.Decimal(12, 2)
+  payFrequency   String       @default("MONTHLY") @db.VarChar(50)
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id])
+}
+
+model TeacherAssignment {
+  id             BigInt       @id @default(autoincrement()) @db.BigInt
+  teacherUserId  BigInt       @db.BigInt
+  classroomId    BigInt       @db.BigInt
+  subjectId      BigInt       @db.BigInt
+  academicYearId Int
+  teacherUser    User         @relation("TeacherAssignments", fields: [teacherUserId], references: [id])
+  classroom      Classroom    @relation(fields: [classroomId], references: [id])
+  subject        Subject      @relation(fields: [subjectId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([teacherUserId, classroomId, subjectId, academicYearId], name: "unique_teacher_assignment")
+}
+
+model NotificationTemplate {
+  id           Int     @id @default(autoincrement())
+  templateCode String  @unique @db.VarChar(100)
+  channel      Channel
+  contentAr    String  @db.Text
+  contentFr    String  @db.Text
+}
+
+model InternalMessage {
+  id           BigInt             @id @default(autoincrement()) @db.BigInt
+  senderUserId BigInt             @db.BigInt
+  subject      String             @db.Text
+  body         String             @db.Text
+  createdAt    DateTime           @default(now()) @db.Timestamptz
+  sender       User               @relation("SentMessages", fields: [senderUserId], references: [id])
+  recipients   MessageRecipient[]
+}
+
+model MessageRecipient {
+  id              BigInt          @id @default(autoincrement()) @db.BigInt
+  messageId       BigInt          @db.BigInt
+  recipientUserId BigInt          @db.BigInt
+  readAt          DateTime?       @db.Timestamptz
+  message         InternalMessage @relation(fields: [messageId], references: [id])
+  recipient       User            @relation("ReceivedMessages", fields: [recipientUserId], references: [id])
+
+  @@unique([messageId, recipientUserId])
+}
+
+model NotificationLog {
+  id              BigInt             @id @default(autoincrement()) @db.BigInt
+  recipientUserId BigInt             @db.BigInt
+  studentId       BigInt?            @db.BigInt
+  channel         Channel
+  content         String             @db.Text
+  status          NotificationStatus
+  sentAt          DateTime           @default(now()) @db.Timestamptz
+  errorMessage    String?            @db.Text
+  recipientUser   User               @relation("SentNotifications", fields: [recipientUserId], references: [id])
+  student         Student?           @relation(fields: [studentId], references: [id])
+}
+
+model DocumentTemplate {
+  id            Int                 @id @default(autoincrement())
+  templateType  TemplateType        @unique
+  branchId      BigInt?             @db.BigInt
+  templateHtml  String              @db.Text
+  nameAr        String              @db.VarChar(255)
+  nameFr        String              @db.VarChar(255)
+  branch        Branch?             @relation(fields: [branchId], references: [id])
+  generatedDocs GeneratedDocument[]
+}
+
+model GeneratedDocument {
+  id                BigInt           @id @default(autoincrement()) @db.BigInt
+  templateId        Int
+  enrollmentId      BigInt           @db.BigInt
+  generatedByUserId BigInt           @db.BigInt
+  generatedAt       DateTime         @default(now()) @db.Timestamptz
+  fileUrl           String           @db.VarChar(512)
+  template          DocumentTemplate @relation(fields: [templateId], references: [id])
+  enrollment        Enrollment       @relation(fields: [enrollmentId], references: [id])
+  generatedByUser   User             @relation("DocumentGenerator", fields: [generatedByUserId], references: [id])
+}

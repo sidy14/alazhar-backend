@@ -10,7 +10,8 @@ import { StudentsModule } from './students/students.module';
 import { FinanceModule } from './finance/finance.module';
 import { HrModule } from './hr/hr.module';
 import { SubjectsModule } from './subjects/subjects.module';
-import { ExamsModule } from './exams/exams.module'; // <-- 1. استيراد
+import { ExamsModule } from './exams/exams.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { ExamsModule } from './exams/exams.module'; // <-- 1. استيراد
     FinanceModule,
     HrModule,
     SubjectsModule,
-    ExamsModule, // <-- 2. تسجيل وحدة الامتحانات
+    ExamsModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [],

@@ -1,22 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import * as express from 'express';
-
-// --- (هذا هو السطر السحري) ---
-// "علّم" JSON كيف يتعامل مع BigInt بتحويله إلى نص
-(BigInt.prototype as any).toJSON = function () {
-  return this.toString();
-};
-// --- (نهاية السطر السحري) ---
+import * as express from 'express'; // استيراد مكتبة express
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // تفعيل مُحلل JSON
-  app.use(express.json());
+  // 1. تفعيل قراءة JSON (لحل مشكلة 400)
+  app.use(express.json()); 
 
-  // تفعيل التحقق من صحة البيانات (الحارس)
+  // 2. حل مشكلة الأرقام الكبيرة BigInt (لحل مشكلة 500)
+  (BigInt.prototype as any).toJSON = function () {
+    return this.toString();
+  };
+
+  // 3. تفعيل التحقق من البيانات (الحارس)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -24,10 +22,9 @@ async function bootstrap() {
     }),
   );
 
-  // تفعيل CORS
+  // 4. السماح للواجهة الأمامية بالاتصال
   app.enableCors();
 
-  // تشغيل الخادم
   await app.listen(3000);
   console.log(`🚀 Application is running on: ${await app.getUrl()}`);
 }

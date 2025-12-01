@@ -1,28 +1,31 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import * as express from 'express'; // استيراد مكتبة express
+import * as express from 'express'; // 1. استيراد express
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // 1. تفعيل قراءة JSON (لحل مشكلة 400)
-  app.use(express.json()); 
+  // 2. (هام جداً) تفعيل قراءة JSON
+  app.use(express.json());
 
-  // 2. حل مشكلة الأرقام الكبيرة BigInt (لحل مشكلة 500)
+  // 3. إصلاح مشكلة الأرقام الكبيرة (BigInt)
   (BigInt.prototype as any).toJSON = function () {
     return this.toString();
   };
 
-  // 3. تفعيل التحقق من البيانات (الحارس)
+  // 4. تفعيل الحارس والتحويل التلقائي
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      transform: true,
+      transform: true, // تحويل الأرقام والنصوص تلقائياً
+      transformOptions: {
+        enableImplicitConversion: true, // السماح بالتحويل الضمني
+      },
     }),
   );
 
-  // 4. السماح للواجهة الأمامية بالاتصال
+  // 5. السماح للواجهة الأمامية بالاتصال
   app.enableCors();
 
   await app.listen(3000);

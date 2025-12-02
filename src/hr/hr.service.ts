@@ -3,13 +3,13 @@ import { PrismaService } from '../prisma.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { AssignTeacherDto } from './dto/assign-teacher.dto';
 import * as bcrypt from 'bcrypt';
-import { AccountType, ScopeType } from '@prisma/client'; // <-- استيراد ScopeType
+import { AccountType, ScopeType } from '@prisma/client';
 
 @Injectable()
 export class HrService {
   constructor(private prisma: PrismaService) {}
 
-  // --- 1. تعيين موظف جديد (مع إعطاء الصلاحية) ---
+  // 1. تعيين موظف جديد (مع الدور)
   async createStaff(dto: CreateStaffDto) {
     return this.prisma.$transaction(async (tx) => {
       const salt = await bcrypt.genSalt(10);
@@ -37,10 +37,9 @@ export class HrService {
         },
       });
 
-      // ج. (الخطوة المفقودة سابقاً) إعطاء "الصلاحية" (Role)
-      // نبحث عن الدور المناسب في جدول الأدوار
+      // ج. (محدث) تعيين الدور بناءً على الاسم القادم من الواجهة
       const role = await tx.role.findUnique({
-        where: { roleName: dto.accountType }, // نبحث عن دور اسمه "TEACHER"
+        where: { roleName: dto.roleName }, 
       });
 
       if (role) {
@@ -48,8 +47,8 @@ export class HrService {
           data: {
             userId: user.id,
             roleId: role.id,
-            scopeType: ScopeType.BRANCH, // افتراضياً نجعله تابعاً لفرع (أو يمكن تركه null)
-            scopeId: null, // سنحدد الفرع لاحقاً
+            scopeType: ScopeType.BRANCH, // افتراضياً للفرع (يمكن تعديله لاحقاً)
+            scopeId: null, 
           },
         });
       }
@@ -59,7 +58,7 @@ export class HrService {
     });
   }
 
-  // --- 2. ربط الأستاذ بالفصل والمادة ---
+  // 2. ربط الأستاذ
   async assignTeacher(dto: AssignTeacherDto) {
     return this.prisma.teacherAssignment.create({
       data: {
@@ -71,16 +70,11 @@ export class HrService {
     });
   }
 
-  // --- 3. جلب تعيينات الأستاذ ---
+  // 3. جلب جدول الأستاذ
   async getTeacherAssignments(userId: number) {
     return this.prisma.teacherAssignment.findMany({
-      where: {
-        teacherUserId: BigInt(userId),
-      },
-      include: {
-        classroom: true,
-        subject: true,
-      },
+      where: { teacherUserId: BigInt(userId) },
+      include: { classroom: true, subject: true },
     });
   }
 }

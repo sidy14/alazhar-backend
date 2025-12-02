@@ -11,7 +11,7 @@ import { FinanceModule } from './finance/finance.module';
 import { HrModule } from './hr/hr.module';
 import { SubjectsModule } from './subjects/subjects.module';
 import { ExamsModule } from './exams/exams.module';
-import { UsersModule } from './users/users.module';
+import { UsersModule } from './users/users.module'; // <-- (جديد)
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { UsersModule } from './users/users.module';
     HrModule,
     SubjectsModule,
     ExamsModule,
-    UsersModule,
+    UsersModule, // <-- (جديد) تم تسجيل وحدة المستخدمين
   ],
   controllers: [],
   providers: [],

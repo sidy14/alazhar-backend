@@ -17,6 +17,7 @@ export class UsersService {
         accountType: true,
         isActive: true,
         createdAt: true,
+        // لا نجلب كلمة المرور للأمان
         assignments: {
           include: { role: true } // لنعرف دور كل مستخدم
         }
@@ -24,7 +25,7 @@ export class UsersService {
     });
   }
 
-  // 2. تصفير كلمة المرور (Reset Password)
+  // 2. إعادة تعيين كلمة المرور (Reset Password)
   async resetPassword(userId: number, newPassword: string) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
@@ -42,7 +43,7 @@ export class UsersService {
 
     return this.prisma.user.update({
       where: { id: BigInt(userId) },
-      data: { isActive: !user.isActive }, // عكس الحالة الحالية
+      data: { isActive: !user.isActive }, // عكس الحالة الحالية (نشط <-> معطل)
     });
   }
 }

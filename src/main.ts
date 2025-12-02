@@ -9,7 +9,7 @@ async function bootstrap() {
   // 1. تفعيل قراءة JSON
   app.use(express.json());
 
-  // 2. إصلاح مشكلة الأرقام الكبيرة (BigInt)
+  // 2. حل مشكلة BigInt
   (BigInt.prototype as any).toJSON = function () {
     return this.toString();
   };
@@ -23,6 +23,5 @@ async function bootstrap() {
 
   app.enableCors();
   await app.listen(3000);
-  console.log(`🚀 Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();

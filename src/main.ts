@@ -6,10 +6,10 @@ import * as express from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // 1. تفعيل قراءة JSON
+  // هذا السطر هو الذي سيحل مشكلة "البيانات الفارغة"
   app.use(express.json());
 
-  // 2. حل مشكلة BigInt
+  // هذا السطر يحل مشكلة الأرقام الكبيرة
   (BigInt.prototype as any).toJSON = function () {
     return this.toString();
   };
@@ -23,5 +23,6 @@ async function bootstrap() {
 
   app.enableCors();
   await app.listen(3000);
+  console.log(`🚀 Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
